@@ -20,6 +20,7 @@ import Base = require('yeoman-generator');
 enum ExtensionType {
     HelloWorld = 'hello-world',
     Widget = 'widget',
+    WidgetWithUnitTests = 'widget-with-unittest',
     LabelProvider = 'labelprovider',
     TreeEditor = 'tree-editor',
     Empty = 'empty',
@@ -46,6 +47,9 @@ module.exports = class TheiaExtension extends Base {
         skipInstall: boolean
         standalone: boolean
         dependencies: string
+        devdependencies: string
+        scripts: string
+        rootscripts: string
     };
 
     constructor(args: string | string[], options: any) {
@@ -148,6 +152,7 @@ module.exports = class TheiaExtension extends Base {
                 choices: [
                     { value: ExtensionType.HelloWorld, name: 'Hello World' },
                     { value: ExtensionType.Widget, name: 'Widget' },
+                    { value: ExtensionType.WidgetWithUnitTests, name: 'Widget with Unit Tests' },
                     { value: ExtensionType.LabelProvider, name: 'LabelProvider' },
                     { value: ExtensionType.TreeEditor, name: 'TreeEditor' },
                     { value: ExtensionType.Backend, name: 'Backend Communication' },
@@ -192,10 +197,14 @@ module.exports = class TheiaExtension extends Base {
             lernaVersion: options["lerna-version"],
             backend: options["extensionType"] === ExtensionType.Backend
         }
+        this.params.dependencies = '';
         if (this.params.extensionType === ExtensionType.TreeEditor) {
             this.params.dependencies = `,\n    "@theia/editor": "${this.params.theiaVersion}",\n    "@theia/filesystem": "${this.params.theiaVersion}",\n    "@theia/workspace": "${this.params.theiaVersion}",\n    "@eclipse-emfcloud/theia-tree-editor": "latest",\n    "uuid": "^3.3.2"`;
-        } else {
-            this.params.dependencies = '';
+        } 
+        if (this.params.extensionType === ExtensionType.WidgetWithUnitTests) {
+            this.params.devdependencies = `,\n    "@testing-library/react": "^11.2.7",\n    "@types/jest": "^26.0.20",\n    "jest": "^26.6.3",\n    "ts-node": "^9.1.1",\n    "ts-jest": "^26.5.6"`;
+            this.params.scripts = `,\n    "test": "jest --config configs/jest.config.ts"`;
+            this.params.rootscripts =`,\n    "test": "cd ${this.params.extensionPath} && yarn test"`;
         }
         options.params = this.params
         if (!options.standalone) {
@@ -291,7 +300,7 @@ module.exports = class TheiaExtension extends Base {
         }
 
         /** widget */
-        if (this.params.extensionType === ExtensionType.Widget) {
+        if (this.params.extensionType === ExtensionType.Widget||this.params.extensionType === ExtensionType.WidgetWithUnitTests) {
             this.fs.copyTpl(
                 this.templatePath('widget/frontend-module.ts'),
                 this.extensionPath(`src/browser/${this.params.extensionPath}-frontend-module.ts`),
@@ -318,6 +327,24 @@ module.exports = class TheiaExtension extends Base {
                 { params: this.params }
             );
         }
+         /** widget with unit test */
+         if (this.params.extensionType === ExtensionType.WidgetWithUnitTests) {
+            this.fs.copyTpl(
+                this.templatePath('widget/__tests__/widget.test.ts'),
+                this.extensionPath(`src/browser/__tests__/${this.params.extensionPath}-widget.test.ts`),
+                { params: this.params }
+            );
+            this.fs.copyTpl(
+                this.templatePath('widget/__tests__/mock-objects/mock-message-service.ts'),
+                this.extensionPath(`src/browser/__tests__/mock-objects/mock-message-service.ts`),
+                { params: this.params }
+            );
+            this.fs.copyTpl(
+                this.templatePath('widget/configs/jest.config.ts'),
+                this.extensionPath(`configs/jest.config.ts`),
+                { params: this.params }
+            );
+         }
 
         /** backend */
         if (this.params.extensionType === ExtensionType.Backend) {
